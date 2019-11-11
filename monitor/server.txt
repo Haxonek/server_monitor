@@ -1,0 +1,2 @@
+example.log
+example2.log
