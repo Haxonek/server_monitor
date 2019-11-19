@@ -11,13 +11,8 @@
 <body>
 	<div class="container">
 		<pre class="row content-logs">
-			<code class="logs" id="log">ghj</code>
+			<code class="logs" id="log">Update status to see server information</code>
 		</pre>
-<!--
-		<div class="row content-logs">
-			<input class="logs" id="log" type="textarea" name="fname">
-		</div>
--->
 		
 		<div class="row update-log-wrapper">
 			<h3>Click button to udpate</h3><br/>
@@ -29,16 +24,24 @@
 	<script>
 		function readLogFile() {
 			var paragraph = document.getElementById("log");
+			
+			var xhr = new XMLHttpRequest();
 			var str = "";
 			
-			fh = fopen("./serverData.json", 0)
-			if (fh ~= -1) {
-				length = flength(fh);
-				str = fread(fh, length);
-				fclose(fh);
-			}
+			xhr.onreadystatechange = function() {
+				if (xhr.readyState === XMLHttpRequest.DONE) {
+					if (xhr.status === 200) {
+						str += xhr.responseText;
+					} else {
+						str += "error reading file";
+					}
+				}
+			};
 			
-			paragraph.textContent += str;
+			xhr.open("GET", "serverData.json", false);
+			xhr.send();
+			
+			paragraph.textContent = str;
 		}
 	
 	</script>
