@@ -5,10 +5,17 @@ import (
     "strings"
     "bufio"
     "os"
+    "time"
+    "encoding/json"
 )
 
+type S3Object struct {
+    FilePath string `json:location`
+    LogPost string `json:lastLogPost`
+}
+
 // wait time between checking log file and posting to server
-const WAIT_SEC int = 7200
+const WAIT_SEC time.Duration = 7200
 
 func getLogFiles(file string) []string {
     // read file
@@ -62,9 +69,41 @@ func getRecentLine(fileName string) string {
     return lastLine
 }
 
-func postToS3(logFile string) bool {
+// I should read in the old file, increment size of array (either append or
+// copy), add newPost to it, and then re-add to file before upload
+func postToS3(logFilePath, lastLog string) bool {
     // docs https://aws.amazon.com/sdk-for-go/
     // post last ten lines to S3 bucket to be read by client
+
+    // set up struct
+    newPost := S3Object{logFilePath, lastLog}
+
+    // marshal data and create
+    formattedJSON, err := json.MarshalIndent(newPost, "", "  ")
+    if err != nil {
+        fmt.Println("Error marshaling data to create new post")
+        return false;
+    }
+
+    // add files to json, can encounter issues if file is already open
+    f, err := os.OpenFile("serverData.json", os.O_APPEND|os.O_WRONLY, 0644)
+    if err != nil {
+        fmt.Println("Error reading in server.txt")
+        return false;
+    }
+    defer f.Close()
+
+    _, err = fmt.Fprintln(f, formattedJSON)
+    if err != nil {
+        fmt.Println("Error writing to serverData.json file")
+        return false;
+    }
+
+    // push files to S3
+
+
+    return true
+
 }
 
 func watchClosely(logFile string, watching *map[string]bool) {
@@ -96,13 +135,13 @@ func main() {
     for true {
 
         // wait to allow bots to repost content
-        time.Sleep(WAIT_SEC * time.Seconds())
+        time.Sleep(WAIT_SEC * time.Second)
 
         for _, v := range logFiles {
             // check to see if the most recent logs are the same
             // if they are, that means it's likely not updating properly
             if lastLogLine[v] == getRecentLine(v) && !watching[v] {
-                postToS3(v)
+                postToS3(v, lastLogLine[v])
 
                 watching[v] = true
                 go watchClosely(v, &watching)
